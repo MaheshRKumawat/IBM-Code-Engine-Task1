@@ -4,7 +4,7 @@ WORKDIR /job
 
 RUN apk add --update
 
-COPY ./job .
+COPY . .
 
 RUN go run main.go
 
