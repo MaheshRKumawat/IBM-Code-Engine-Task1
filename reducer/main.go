@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/csv"
 	"fmt"
 	"io"
@@ -115,7 +116,7 @@ func main() {
 
 	// Variables
 	bucketName := os.Getenv("BUCKET_NAME")
-	key := os.Getenv("DATASET_OBJECT_KEY")
+	key := os.Getenv("MAPPER_OBJECT_KEY")
 
 	// users will need to create bucket, key (flat string name)
 	Input := s3.GetObjectInput{
@@ -127,5 +128,20 @@ func main() {
 	res, _ := client.GetObject(&Input)
 
 	body, _ := ioutil.ReadAll(res.Body)
+
 	reduce(string(body))
+
+	// Variables and random content to sample, replace when appropriate
+	Newkey := os.Getenv("REDUCER_OBJECT_KEY")
+	content := bytes.NewReader([]byte("<CONTENT>"))
+
+	input := s3.PutObjectInput{
+		Bucket: aws.String(bucketName),
+		Key:    aws.String(Newkey),
+		Body:   content,
+	}
+
+	// Call Function to upload (Put) an object
+	result, _ := client.PutObject(&input)
+	fmt.Println(result)
 }

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/csv"
 	"fmt"
 	"io"
@@ -93,4 +94,18 @@ func main() {
 
 	body, _ := ioutil.ReadAll(res.Body)
 	mapper(string(body))
+
+	// Variables and random content to sample, replace when appropriate
+	Newkey := os.Getenv("MAPPER_OBJECT_KEY")
+	content := bytes.NewReader([]byte("<CONTENT>"))
+
+	input := s3.PutObjectInput{
+		Bucket: aws.String(bucketName),
+		Key:    aws.String(Newkey),
+		Body:   content,
+	}
+
+	// Call Function to upload (Put) an object
+	result, _ := client.PutObject(&input)
+	fmt.Println(result)
 }
