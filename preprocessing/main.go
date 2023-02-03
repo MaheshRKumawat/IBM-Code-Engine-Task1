@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"encoding/csv"
 	"fmt"
 	"io"
@@ -16,7 +15,7 @@ import (
 	"github.com/IBM/ibm-cos-sdk-go/service/s3"
 )
 
-func preprocess(fileName string) {
+func preprocess(fileName string) (rec string) {
 	fi, erri := os.Open(fileName)
 	fo, erro := os.Create("salesP.csv")
 
@@ -57,6 +56,8 @@ func preprocess(fileName string) {
 
 	fi.Close()
 	fo.Close()
+
+	return rec
 }
 
 func main() {
@@ -64,7 +65,7 @@ func main() {
 	serviceInstanceID := os.Getenv("RESOURCE_INSTANCE_ID")
 	authEndpoint := os.Getenv("AUTH_ENDPOINT")
 	serviceEndpoint := os.Getenv("SERVICE_ENDPOINT")
-	// bucketLocation := os.Getenv("LOCATION")
+	// bucketLocation := os.Getenv("LOCATION")                                   
 
 	// Create config
 	conf := aws.NewConfig().
@@ -77,9 +78,9 @@ func main() {
 	sess := session.Must(session.NewSession())
 	client := s3.New(sess, conf)
 
-	d, err := client.ListBuckets(&s3.ListBucketsInput{})
+	_, err := client.ListBuckets(&s3.ListBucketsInput{})
 
-	fmt.Print(d)
+	// fmt.Print(d)
 
 	fmt.Println("error: ", err)
 
@@ -100,17 +101,19 @@ func main() {
 
 	preprocess(string(body))
 
-	// Variables and random content to sample, replace when appropriate
-	Newkey := os.Getenv("PREPROCESSED_OBJECT_KEY")
-	content := bytes.NewReader([]byte("<CONTENT>"))
+	// fmt.Print(body)
 
-	input := s3.PutObjectInput{
-		Bucket: aws.String(bucketName),
-		Key:    aws.String(Newkey),
-		Body:   content,
-	}
+	// // Variables and random content to sample, replace when appropriate
+	// Newkey := os.Getenv("PREPROCESSED_OBJECT_KEY")
+	// content := bytes.NewReader([]byte(contentfile))
 
-	// Call Function to upload (Put) an object
-	result, _ := client.PutObject(&input)
-	fmt.Println(result)
+	// input := s3.PutObjectInput{
+	// 	Bucket: aws.String(bucketName),
+	// 	Key:    aws.String(Newkey),
+	// 	Body:   content,
+	// }
+
+	// // Call Function to upload (Put) an object
+	// result, _ := client.PutObject(&input)
+	// fmt.Println(result)
 }
