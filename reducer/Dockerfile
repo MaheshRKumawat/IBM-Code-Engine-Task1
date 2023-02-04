@@ -6,6 +6,6 @@ RUN apk add --update
 
 COPY . .
 
-RUN go run main.go
+RUN go build -o /main-file
 
-CMD ["echo", "hello"]
+CMD ["/main-file"]
