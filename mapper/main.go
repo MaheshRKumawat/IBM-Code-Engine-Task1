@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/csv"
+	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -17,7 +18,7 @@ import (
 
 func mapper(fileName string) {
 	fi, erri := os.Open(fileName)
-	fo, erro := os.Create("salesM.csv")
+	fo, erro := os.Create("Mapped.csv")
 
 	if erri != nil {
 		fmt.Printf("Failed opening file, error: %s", erri)
@@ -60,7 +61,9 @@ func main() {
 	serviceInstanceID := os.Getenv("RESOURCE_INSTANCE_ID")
 	authEndpoint := os.Getenv("AUTH_ENDPOINT")
 	serviceEndpoint := os.Getenv("SERVICE_ENDPOINT")
-	// bucketLocation := os.Getenv("LOCATION")
+	bucketName := os.Getenv("BUCKET_NAME")
+	prevkey := os.Getenv("PREPROCESSED_OBJECT_KEY")
+	currkey := os.Getenv("MAPPED_OBJECT_KEY")
 
 	// Create config
 	conf := aws.NewConfig().
@@ -69,43 +72,100 @@ func main() {
 		WithCredentials(ibmiam.NewStaticCredentials(aws.NewConfig(), authEndpoint, apiKey, serviceInstanceID)).
 		WithS3ForcePathStyle(true)
 
-	// Create client
 	sess := session.Must(session.NewSession())
 	client := s3.New(sess, conf)
 
-	d, err := client.ListBuckets(&s3.ListBucketsInput{})
+	list_objects := &s3.ListObjectsV2Input{
+		Bucket: aws.String(bucketName),
+	}
 
-	fmt.Print(d)
+	l, _ := client.ListObjectsV2(list_objects)
 
-	fmt.Println("error: ", err)
+	type ob []map[string]string
+	var jsonMap map[string]ob
+	var ob_keys []string
 
-	// Variables
-	bucketName := os.Getenv("BUCKET_NAME")
-	key := os.Getenv("PREPROCESSED_OBJECT_KEY")
+	jsonBytes, _ := json.MarshalIndent(l, " ", " ")
+	json.Unmarshal(jsonBytes, &jsonMap)
+	objects := jsonMap["Contents"]
+
+	for _, v := range objects {
+		ob_keys = append(ob_keys, v["Key"])
+	}
+
+	prevObjectPresent := false
+	currObjectPresent := false
+
+	for _, obj := range ob_keys {
+		if obj == prevkey {
+			prevObjectPresent = true
+		}
+		if obj == currkey {
+			currObjectPresent = true
+		}
+	}
+
+	if !prevObjectPresent {
+		log.Fatalln("Preprocessed Object not present in Cloud Object Storage")
+		log.Fatalln("Exit from main.go")
+		os.Exit(1)
+	}
+
+	if currObjectPresent {
+		log.Fatalln("Mapper Object already present in Cloud Object Storage")
+		log.Fatalln("Exit from main.go")
+		os.Exit(1)
+	}
 
 	// users will need to create bucket, key (flat string name)
 	Input := s3.GetObjectInput{
 		Bucket: aws.String(bucketName),
-		Key:    aws.String(key),
+		Key:    aws.String(prevkey),
 	}
 
 	// Call Function
 	res, _ := client.GetObject(&Input)
 
 	body, _ := ioutil.ReadAll(res.Body)
-	mapper(string(body))
 
-	// Variables and random content to sample, replace when appropriate
-	Newkey := os.Getenv("MAPPER_OBJECT_KEY")
-	content := bytes.NewReader([]byte("<CONTENT>"))
+	data := string(body)
+
+	csvFile, err := os.Create(prevkey)
+
+	if err != nil {
+		log.Fatalln("Failed to create file: ", err)
+		log.Fatalln("Exit from main.go")
+		os.Exit(1)
+	}
+
+	_, err = csvFile.WriteString(data)
+
+	if err != nil {
+		log.Fatalln("Failed to write file: ", err)
+		log.Fatalln("Exit from main.go")
+		os.Exit(1)
+	}
+
+	mapper(prevkey)
+
+	DataBytes, erri := ioutil.ReadFile(currkey)
+
+	if erri != nil {
+		fmt.Printf("Failed opening file, error: %s", erri)
+		os.Exit(1)
+	}
+
+	content := bytes.NewReader([]byte(DataBytes))
 
 	input := s3.PutObjectInput{
 		Bucket: aws.String(bucketName),
-		Key:    aws.String(Newkey),
+		Key:    aws.String(currkey),
 		Body:   content,
 	}
 
 	// Call Function to upload (Put) an object
 	result, _ := client.PutObject(&input)
-	fmt.Println(result)
+	if result != nil {
+		fmt.Println("Mapped Object pushed to Cloud Object Storage")
+	}
 }
