@@ -1,4 +1,4 @@
-module github.com/Mahesh-Kumawat/IBM_Code_Engine_Jobs/cos
+module github.com/MaheshRKumawat/IBM-Code-Engine-Task1/cos
 
 go 1.19
 
